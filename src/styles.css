@@ -75,6 +75,11 @@ textarea {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
+input::placeholder,
+textarea::placeholder {
+  color: rgba(158, 179, 199, 0.42);
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -96,6 +101,7 @@ textarea {
   display: flex;
   justify-content: center;
   align-items: center;
+  position: relative;
 }
 
 .app-stage {
@@ -103,6 +109,19 @@ textarea {
   min-height: calc(100vh - 3rem);
   display: flex;
   flex-direction: column;
+}
+
+.app-footnote {
+  position: absolute;
+  right: 3.4rem;
+  bottom: 0.45rem;
+  color: rgba(158, 179, 199, 0.58);
+  font-size: 0.72rem;
+  text-decoration: none;
+}
+
+.app-footnote:hover {
+  color: rgba(214, 227, 240, 0.86);
 }
 
 .topbar {
@@ -709,6 +728,7 @@ textarea {
 
 .preview-tags-line {
   margin-top: 0.75rem;
+  color: #8f98a0;
 }
 
 .preview-tags-label {

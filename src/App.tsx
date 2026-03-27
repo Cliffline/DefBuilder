@@ -378,7 +378,7 @@ export default function App() {
       return `linear-gradient(180deg, ${toRgba(selectedItem.background_color, 0.46)} 0%, ${toRgba(selectedItem.background_color, 0.88)} 100%)`;
     }
 
-    return 'linear-gradient(180deg, #343434 0%, #292929 100%)';
+    return undefined;
   }, [previewSurfaceColor, selectedItem]);
   const previewAccessories = useMemo(() => {
     if (!selectedItem) {
@@ -715,7 +715,7 @@ export default function App() {
                   <span>Background Color</span>
                   <input
                     type="text"
-                    placeholder="707d6a"
+                    placeholder="0a121c"
                     value={typeof selectedItem.background_color === 'string' ? selectedItem.background_color : ''}
                     onChange={(event) => setDocumentState((current) => updateItemField(current, selectedIndex, 'background_color', event.target.value || undefined))}
                   />
@@ -725,7 +725,7 @@ export default function App() {
                   <span>Name Color</span>
                   <input
                     type="text"
-                    placeholder="cf6a32"
+                    placeholder="d6e3f0"
                     value={typeof selectedItem.name_color === 'string' ? selectedItem.name_color : ''}
                     onChange={(event) => setDocumentState((current) => updateItemField(current, selectedIndex, 'name_color', event.target.value || undefined))}
                   />
@@ -805,7 +805,7 @@ export default function App() {
                 }}
               >
                 <div
-                  className={`preview-thumb item-thumb item-thumb-${getThumbnailVariant(selectedItem)}`}
+                  className="preview-thumb"
                   style={{
                     background: previewSurfaceBackground,
                   }}
@@ -919,6 +919,14 @@ export default function App() {
         </aside>
         </main>
       </div>
+      <a
+        className="app-footnote"
+        href="https://github.com/Cliffline/DefBuilder?tab=readme-ov-file"
+        target="_blank"
+        rel="noreferrer"
+      >
+        GitHub: Cliffline/DefBuilder
+      </a>
     </div>
   );
 }
