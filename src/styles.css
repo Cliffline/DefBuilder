@@ -354,14 +354,22 @@ textarea {
   min-width: 0;
 }
 
-.item-name {
+.item-id {
   color: #dfeaf4;
-  font-size: 1rem;
+  font-size: 0.96rem;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
+}
+
+.item-name {
+  margin-top: 0.18rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .item-subtitle {
+  margin-top: 0.18rem;
   color: #9aa7b4;
   font-size: 0.82rem;
   line-height: 1.2;
@@ -459,6 +467,99 @@ textarea {
   flex-direction: column;
   gap: 0.75rem;
   margin-top: auto;
+}
+
+.json-editor-frame {
+  border: 1px solid rgba(102, 192, 244, 0.12);
+  background: rgba(10, 18, 28, 0.72);
+}
+
+.json-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 1.9rem;
+  padding: 0.15rem 0.35rem 0;
+  border-bottom: 1px solid rgba(102, 192, 244, 0.12);
+  background: rgba(16, 24, 34, 0.82);
+}
+
+.json-editor-toolbar .section-title {
+  margin: 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+}
+
+.json-toolbar-button {
+  min-height: 1.4rem;
+  padding: 0.12rem 0.55rem;
+  border-radius: 2px;
+  font-size: 0.78rem;
+  line-height: 1.1;
+  box-shadow: none;
+  background: rgba(37, 50, 66, 0.92);
+}
+
+.json-editor-shell {
+  position: relative;
+  min-height: 0;
+  background: transparent;
+}
+
+.json-editor-highlight,
+.json-editor-input {
+  margin: 0;
+  width: 100%;
+  min-height: 0;
+  padding: 0.9rem 1rem;
+  font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
+  font-size: 0.84rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  overflow: auto;
+}
+
+.json-editor-highlight {
+  color: #d9e6f2;
+  pointer-events: none;
+}
+
+.json-editor-input {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: #dfeaf4;
+  resize: vertical;
+}
+
+.json-editor-input::selection {
+  background: rgba(102, 192, 244, 0.28);
+}
+
+.json-key {
+  color: #66c0f4;
+}
+
+.json-string {
+  color: #a3cf62;
+}
+
+.json-number {
+  color: #f0c674;
+}
+
+.json-boolean {
+  color: #ff8f9a;
+}
+
+.json-null {
+  color: #c792ea;
 }
 
 .import-error,

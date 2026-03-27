@@ -20,6 +20,10 @@ function formatItemLabel(item: Record<string, unknown>, index: number): string {
   return `${itemdefid} ${name}`;
 }
 
+function formatItemId(item: Record<string, unknown>, index: number): string {
+  return typeof item.itemdefid === 'number' ? `#${item.itemdefid}` : `Item ${index + 1}`;
+}
+
 function formatItemType(item: Record<string, unknown>): string {
   return typeof item.type === 'string' ? item.type : 'missing type';
 }
@@ -217,6 +221,40 @@ function getValidationSummary(issueCount: number): string {
   return issueCount > 0 ? `Validation (${issueCount})` : 'Validation';
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+function getHighlightedJsonHtml(value: string): string {
+  const escaped = escapeHtml(value);
+
+  return escaped.replace(
+    /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"\s*:?)|\b(true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+\-]?\d+)?/g,
+    (match) => {
+      if (match.startsWith('"')) {
+        if (match.endsWith(':')) {
+          return `<span class="json-key">${match}</span>`;
+        }
+
+        return `<span class="json-string">${match}</span>`;
+      }
+
+      if (match === 'true' || match === 'false') {
+        return `<span class="json-boolean">${match}</span>`;
+      }
+
+      if (match === 'null') {
+        return `<span class="json-null">${match}</span>`;
+      }
+
+      return `<span class="json-number">${match}</span>`;
+    },
+  );
+}
+
 function formatValidationPath(path: string): string {
   if (path === 'document') {
     return 'document';
@@ -262,6 +300,8 @@ function loadPreviewMeta(): { gameName: string; gameIconUrl: string } {
 
 export default function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const rawEditorInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const rawEditorHighlightRef = useRef<HTMLPreElement | null>(null);
   const [documentState, setDocumentState] = useState<InventoryDocument>(() => {
     const saved = window.localStorage.getItem(STORAGE_KEY);
     if (!saved) {
@@ -466,6 +506,15 @@ export default function App() {
     setRawItemError(null);
   }
 
+  function syncRawEditorScroll() {
+    if (!rawEditorInputRef.current || !rawEditorHighlightRef.current) {
+      return;
+    }
+
+    rawEditorHighlightRef.current.scrollTop = rawEditorInputRef.current.scrollTop;
+    rawEditorHighlightRef.current.scrollLeft = rawEditorInputRef.current.scrollLeft;
+  }
+
   return (
     <div className="app-shell">
       <div className="app-stage">
@@ -578,7 +627,10 @@ export default function App() {
                       )}
                     </div>
                     <div className="item-copy">
-                      <span className="item-name">{formatItemLabel(item, index)}</span>
+                      <span className="item-id">{formatItemId(item, index)}</span>
+                      <span className="item-name" style={{ color: normalizeColor(item.name_color) }}>
+                        {getDisplayName(item, index)}
+                      </span>
                       <small className="item-subtitle">{formatItemSubtitle(item, itemIssueCounts.get(index) ?? 0)}</small>
                     </div>
                   </button>
@@ -701,14 +753,30 @@ export default function App() {
               </div>
 
                 <section className="raw-editor">
-                  <div className="raw-editor-header">
-                    <div>
-                      <p className="section-title">Advanced JSON</p>
-                      <h3>Raw selected item</h3>
+                  <div className="json-editor-frame">
+                    <div className="json-editor-toolbar">
+                      <p className="section-title">JSON Block</p>
+                      <button type="button" className="json-toolbar-button" onClick={handleApplyRawItem}>Apply JSON</button>
                     </div>
-                    <button type="button" onClick={handleApplyRawItem}>Apply JSON</button>
+                    <div className="json-editor-shell">
+                      <pre
+                        ref={rawEditorHighlightRef}
+                        className="json-editor-highlight"
+                        aria-hidden="true"
+                        dangerouslySetInnerHTML={{ __html: `${getHighlightedJsonHtml(rawItemDraft)}\n` }}
+                      />
+                      <textarea
+                        ref={rawEditorInputRef}
+                        className="json-editor-input"
+                        rows={18}
+                        wrap="soft"
+                        spellCheck={false}
+                        value={rawItemDraft}
+                        onChange={(event) => setRawItemDraft(event.target.value)}
+                        onScroll={syncRawEditorScroll}
+                      />
+                    </div>
                   </div>
-                  <textarea rows={18} value={rawItemDraft} onChange={(event) => setRawItemDraft(event.target.value)} />
                   {rawItemError ? <p className="inline-error">{rawItemError}</p> : null}
                 </section>
               </>

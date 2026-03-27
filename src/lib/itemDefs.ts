@@ -230,12 +230,18 @@ export function updateRootNumberField(
 
   if (rawValue.trim() === '') {
     delete nextDocument[key];
+    nextDocument.items.forEach((item) => {
+      delete item[key];
+    });
     return nextDocument;
   }
 
   const nextValue = Number(rawValue);
   if (Number.isFinite(nextValue)) {
     nextDocument[key] = nextValue;
+    nextDocument.items.forEach((item) => {
+      item[key] = nextValue;
+    });
   }
 
   return nextDocument;
