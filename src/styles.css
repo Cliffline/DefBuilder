@@ -503,7 +503,10 @@ textarea {
 
 .json-editor-shell {
   position: relative;
-  min-height: 0;
+  height: 24rem;
+  min-height: 12rem;
+  resize: vertical;
+  overflow: hidden;
   background: transparent;
 }
 
@@ -511,7 +514,7 @@ textarea {
 .json-editor-input {
   margin: 0;
   width: 100%;
-  min-height: 0;
+  height: 100%;
   padding: 0.9rem 1rem;
   font-family: "IBM Plex Mono", "SFMono-Regular", monospace;
   font-size: 0.84rem;
@@ -523,6 +526,8 @@ textarea {
 }
 
 .json-editor-highlight {
+  position: absolute;
+  inset: 0;
   color: #d9e6f2;
   pointer-events: none;
 }
@@ -535,7 +540,7 @@ textarea {
   background: transparent;
   color: transparent;
   caret-color: #dfeaf4;
-  resize: vertical;
+  resize: none;
 }
 
 .json-editor-input::selection {
