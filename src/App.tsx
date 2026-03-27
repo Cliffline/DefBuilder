@@ -12,6 +12,7 @@ import {
 } from './lib/itemDefs';
 
 const STORAGE_KEY = 'defbuilder-draft';
+const PREVIEW_META_STORAGE_KEY = 'defbuilder-preview-meta';
 
 function formatItemLabel(item: Record<string, unknown>, index: number): string {
   const itemdefid = typeof item.itemdefid === 'number' ? `#${item.itemdefid}` : `Item ${index + 1}`;
@@ -47,16 +48,169 @@ function getThumbnailVariant(item: Record<string, unknown>): string {
   }
 }
 
-function getPreviewFacts(item: Record<string, unknown>): string[] {
-  const facts = [
-    typeof item.itemdefid === 'number' ? `ItemDef #${item.itemdefid}` : null,
-    typeof item.price === 'string' ? `Price ${item.price}` : null,
-    typeof item.price_category === 'string' ? `Category ${item.price_category}` : null,
-    item.tradable === true ? 'Tradable' : null,
-    item.marketable === true ? 'Marketable' : null,
-  ];
+function getDisplayName(item: Record<string, unknown>, index: number): string {
+  if (typeof item.name === 'string' && item.name.trim().length > 0) {
+    return item.name;
+  }
 
-  return facts.filter((fact): fact is string => Boolean(fact));
+  if (typeof item.name_english === 'string' && item.name_english.trim().length > 0) {
+    return item.name_english;
+  }
+
+  if (typeof item.itemdefid === 'number') {
+    return `Item #${item.itemdefid}`;
+  }
+
+  return `Item ${index + 1}`;
+}
+
+function getDisplayDescription(item: Record<string, unknown>): string | null {
+  if (typeof item.description === 'string' && item.description.trim().length > 0) {
+    return item.description;
+  }
+
+  if (typeof item.description_english === 'string' && item.description_english.trim().length > 0) {
+    return item.description_english;
+  }
+
+  return null;
+}
+
+function normalizeColor(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+
+  const trimmed = value.trim().replace(/^#/, '');
+  if (!/^[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return undefined;
+  }
+
+  return `#${trimmed}`;
+}
+
+function toRgba(value: unknown, alpha: number): string | undefined {
+  const color = normalizeColor(value);
+  if (!color) {
+    return undefined;
+  }
+
+  const hex = color.slice(1);
+  const red = Number.parseInt(hex.slice(0, 2), 16);
+  const green = Number.parseInt(hex.slice(2, 4), 16);
+  const blue = Number.parseInt(hex.slice(4, 6), 16);
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
+function getListImageUrl(item: Record<string, unknown>): string | null {
+  if (typeof item.icon_url === 'string' && item.icon_url.trim().length > 0) {
+    return item.icon_url;
+  }
+
+  if (typeof item.icon_url_large === 'string' && item.icon_url_large.trim().length > 0) {
+    return item.icon_url_large;
+  }
+
+  return null;
+}
+
+function getPreviewImageUrl(item: Record<string, unknown>): string | null {
+  if (typeof item.icon_url_large === 'string' && item.icon_url_large.trim().length > 0) {
+    return item.icon_url_large;
+  }
+
+  if (typeof item.icon_url === 'string' && item.icon_url.trim().length > 0) {
+    return item.icon_url;
+  }
+
+  return null;
+}
+
+function titleCase(value: string): string {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .split(' ')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function parseTagList(value: unknown): string[] {
+  if (typeof value !== 'string') {
+    return [];
+  }
+
+  return value
+    .split(';')
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+}
+
+function formatTag(entry: string): string {
+  const [category, rawValue] = entry.split(':');
+
+  if (rawValue) {
+    return `${titleCase(category)}: ${titleCase(rawValue)}`;
+  }
+
+  return titleCase(category);
+}
+
+function getPreviewTags(item: Record<string, unknown>): string[] {
+  const tags = [
+    ...parseTagList(item.tags),
+    ...parseTagList(item.store_tags),
+  ].map(formatTag);
+
+  if (item.tradable === true) {
+    tags.push('Tradable');
+  } else if (item.tradable === false) {
+    tags.push('Not Tradable');
+  }
+
+  if (item.marketable === true) {
+    tags.push('Marketable');
+  } else if (item.marketable === false) {
+    tags.push('Not Marketable');
+  }
+
+  return [...new Set(tags)];
+}
+
+function parseBundleReferences(value: unknown): number[] {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return [];
+  }
+
+  return value
+    .split(';')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => Number(entry.split('x')[0]))
+    .filter((entry) => Number.isInteger(entry));
+}
+
+function getAccessoryLabel(items: Record<string, unknown>[]): string {
+  const preferredTags = ['sticker', 'patch', 'charm', 'accessory'];
+
+  for (const tag of preferredTags) {
+    const allMatch = items.every((item) => {
+      const entries = [...parseTagList(item.tags), ...parseTagList(item.store_tags)].map((entry) => entry.toLowerCase());
+      return entries.some((entry) => entry === tag || entry.endsWith(`:${tag}`));
+    });
+
+    if (allMatch) {
+      return titleCase(tag);
+    }
+  }
+
+  const sharedType = items[0]?.type;
+  if (typeof sharedType === 'string' && items.every((item) => item.type === sharedType)) {
+    return titleCase(sharedType);
+  }
+
+  return 'Accessories';
 }
 
 function getValidationSummary(issueCount: number): string {
@@ -87,6 +241,25 @@ function downloadJson(filename: string, inventoryDocument: InventoryDocument): v
   URL.revokeObjectURL(url);
 }
 
+function loadPreviewMeta(): { gameName: string; gameIconUrl: string } {
+  const saved = window.localStorage.getItem(PREVIEW_META_STORAGE_KEY);
+
+  if (!saved) {
+    return { gameName: '', gameIconUrl: '' };
+  }
+
+  try {
+    const parsed = JSON.parse(saved) as { gameName?: unknown; gameIconUrl?: unknown };
+
+    return {
+      gameName: typeof parsed.gameName === 'string' ? parsed.gameName : '',
+      gameIconUrl: typeof parsed.gameIconUrl === 'string' ? parsed.gameIconUrl : '',
+    };
+  } catch {
+    return { gameName: '', gameIconUrl: '' };
+  }
+}
+
 export default function App() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [documentState, setDocumentState] = useState<InventoryDocument>(() => {
@@ -105,8 +278,21 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [newItemId, setNewItemId] = useState('');
   const [newItemError, setNewItemError] = useState<string | null>(null);
+  const [gameName, setGameName] = useState(() => loadPreviewMeta().gameName);
+  const [gameIconUrl, setGameIconUrl] = useState(() => loadPreviewMeta().gameIconUrl);
 
   const selectedItem = documentState.items[selectedIndex] ?? null;
+  const itemById = useMemo(() => {
+    const nextMap = new Map<number, Record<string, unknown>>();
+
+    documentState.items.forEach((item) => {
+      if (typeof item.itemdefid === 'number') {
+        nextMap.set(item.itemdefid, item);
+      }
+    });
+
+    return nextMap;
+  }, [documentState.items]);
   const validationMessages = useMemo(() => validateInventoryDocument(documentState), [documentState]);
   const itemIssueCounts = useMemo(() => {
     const counts = new Map<number, number>();
@@ -137,10 +323,43 @@ export default function App() {
         return values.some((value) => value.toLowerCase().includes(query));
       });
   }, [documentState.items, searchQuery]);
+  const previewTags = useMemo(() => (selectedItem ? getPreviewTags(selectedItem) : []), [selectedItem]);
+  const previewAccentColor = useMemo(() => (selectedItem ? normalizeColor(selectedItem.name_color) : undefined), [selectedItem]);
+  const previewSurfaceColor = useMemo(() => (selectedItem ? normalizeColor(selectedItem.background_color) : undefined), [selectedItem]);
+  const previewCardBorder = useMemo(() => (selectedItem ? previewAccentColor ?? toRgba(selectedItem.background_color, 0.5) : undefined), [previewAccentColor, selectedItem]);
+  const previewAttachmentBorder = useMemo(() => (selectedItem ? toRgba(selectedItem.name_color, 0.5) : undefined), [selectedItem]);
+  const previewImageUrl = useMemo(() => (selectedItem ? getPreviewImageUrl(selectedItem) : null), [selectedItem]);
+  const previewSurfaceBackground = useMemo(() => {
+    if (!selectedItem) {
+      return undefined;
+    }
+
+    if (previewSurfaceColor) {
+      return `linear-gradient(180deg, ${toRgba(selectedItem.background_color, 0.46)} 0%, ${toRgba(selectedItem.background_color, 0.88)} 100%)`;
+    }
+
+    return 'linear-gradient(180deg, #343434 0%, #292929 100%)';
+  }, [previewSurfaceColor, selectedItem]);
+  const previewAccessories = useMemo(() => {
+    if (!selectedItem) {
+      return [] as Record<string, unknown>[];
+    }
+
+    return parseBundleReferences(selectedItem.bundle)
+      .map((itemdefid) => itemById.get(itemdefid))
+      .filter((item): item is Record<string, unknown> => Boolean(item));
+  }, [itemById, selectedItem]);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(documentState));
   }, [documentState]);
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      PREVIEW_META_STORAGE_KEY,
+      JSON.stringify({ gameName, gameIconUrl }),
+    );
+  }, [gameIconUrl, gameName]);
 
   useEffect(() => {
     if (!selectedItem) {
@@ -253,7 +472,6 @@ export default function App() {
         <header className="topbar">
           <div>
             <p className="eyebrow">DefBuilder</p>
-            <h1>Steam ItemDef editor</h1>
             <p className="summary">Import JSON, edit common fields, run validation, and export a clean ItemDef file.</p>
           </div>
           <div className="topbar-actions">
@@ -267,16 +485,38 @@ export default function App() {
         <main className="workspace">
         <div className="main-region">
           <div className="top-strip">
-            <aside className="panel panel-compact sidebar-meta">
-              <label className="field">
-                <span>App ID</span>
-                <input
-                  type="number"
-                  value={documentState.appid ?? ''}
-                  onChange={(event) => setDocumentState((current) => updateRootNumberField(current, 'appid', event.target.value))}
-                />
-              </label>
-            </aside>
+            <div className="meta-cluster">
+              <aside className="panel panel-compact meta-panel">
+                <div className="meta-panel-grid">
+                  <label className="field compact-field">
+                    <span>App ID</span>
+                    <input
+                      type="number"
+                      value={documentState.appid ?? ''}
+                      onChange={(event) => setDocumentState((current) => updateRootNumberField(current, 'appid', event.target.value))}
+                    />
+                  </label>
+
+                  <label className="field compact-field">
+                    <span>Game Name</span>
+                    <input
+                      type="text"
+                      value={gameName}
+                      onChange={(event) => setGameName(event.target.value)}
+                    />
+                  </label>
+
+                  <label className="field compact-field">
+                    <span>Game Icon URL</span>
+                    <input
+                      type="text"
+                      value={gameIconUrl}
+                      onChange={(event) => setGameIconUrl(event.target.value)}
+                    />
+                  </label>
+                </div>
+              </aside>
+            </div>
 
             <section className="panel panel-compact add-item-panel">
               <div className="create-item-row">
@@ -284,7 +524,6 @@ export default function App() {
                   <span>New Item ID</span>
                   <input
                     type="number"
-                    placeholder="1001"
                     value={newItemId}
                     onChange={(event) => setNewItemId(event.target.value)}
                   />
@@ -323,8 +562,20 @@ export default function App() {
                     className={index === selectedIndex ? 'item-row active' : 'item-row'}
                     onClick={() => setSelectedIndex(index)}
                   >
-                    <div className={`item-thumb item-thumb-${getThumbnailVariant(item)}`} aria-hidden="true">
-                      <span>{typeof item.itemdefid === 'number' ? item.itemdefid : index + 1}</span>
+                    <div
+                      className={`item-thumb item-thumb-${getThumbnailVariant(item)}`}
+                      aria-hidden="true"
+                      style={{ borderColor: normalizeColor(item.name_color) }}
+                    >
+                      {getListImageUrl(item) ? (
+                        <img
+                          className="item-thumb-image"
+                          src={getListImageUrl(item) ?? undefined}
+                          alt={getDisplayName(item, index)}
+                        />
+                      ) : (
+                        <span>{typeof item.itemdefid === 'number' ? item.itemdefid : index + 1}</span>
+                      )}
                     </div>
                     <div className="item-copy">
                       <span className="item-name">{formatItemLabel(item, index)}</span>
@@ -478,23 +729,76 @@ export default function App() {
             </div>
 
             {selectedItem ? (
-              <div className="preview-card">
-                <div className={`preview-thumb item-thumb item-thumb-${getThumbnailVariant(selectedItem)}`} aria-hidden="true">
-                  <span>{typeof selectedItem.itemdefid === 'number' ? selectedItem.itemdefid : selectedIndex + 1}</span>
+              <div
+                className="preview-card"
+                style={{
+                  borderColor: previewCardBorder,
+                  boxShadow: previewAccentColor ? `inset 0 0 0 1px ${toRgba(previewAccentColor, 0.16)}` : undefined,
+                }}
+              >
+                <div
+                  className={`preview-thumb item-thumb item-thumb-${getThumbnailVariant(selectedItem)}`}
+                  style={{
+                    background: previewSurfaceBackground,
+                  }}
+                >
+                  {previewImageUrl ? (
+                    <img
+                      className="preview-thumb-image"
+                      src={previewImageUrl}
+                      alt={getDisplayName(selectedItem, selectedIndex)}
+                    />
+                  ) : (
+                    <span>{typeof selectedItem.itemdefid === 'number' ? selectedItem.itemdefid : selectedIndex + 1}</span>
+                  )}
                 </div>
                 <div className="preview-copy">
-                  <p className="preview-type">{formatItemType(selectedItem)}</p>
-                  <h3>{formatItemLabel(selectedItem, selectedIndex)}</h3>
-                  <p className="preview-description">
-                    {typeof selectedItem.description === 'string' && selectedItem.description.trim().length > 0
-                      ? selectedItem.description
-                      : 'No description set.'}
-                  </p>
-                  <div className="preview-facts">
-                    {getPreviewFacts(selectedItem).map((fact) => (
-                      <span key={fact} className="preview-fact">{fact}</span>
-                    ))}
-                  </div>
+                  <h3 style={{ color: previewAccentColor }}>{getDisplayName(selectedItem, selectedIndex)}</h3>
+                  {(gameName.trim().length > 0 || gameIconUrl.trim().length > 0) ? (
+                    <div className="preview-game-row">
+                      {gameIconUrl.trim().length > 0 ? (
+                        <img className="preview-game-icon" src={gameIconUrl.trim()} alt={gameName.trim() || 'Game icon'} />
+                      ) : (
+                        <div className="preview-game-icon preview-game-icon-placeholder" aria-hidden="true" />
+                      )}
+                      <span className="preview-game-name">{gameName.trim() || 'Game Name'}</span>
+                    </div>
+                  ) : null}
+                  {getDisplayDescription(selectedItem) ? (
+                    <p className="preview-description">{getDisplayDescription(selectedItem)}</p>
+                  ) : null}
+                  {previewAccessories.length > 0 ? (
+                    <section className="preview-attachments" style={{ borderColor: previewAttachmentBorder }}>
+                      <div className="preview-attachment-icons">
+                        {previewAccessories.map((accessory, index) => {
+                          const imageUrl = getPreviewImageUrl(accessory);
+
+                          return (
+                            <div
+                              key={`${accessory.itemdefid ?? index}-${index}`}
+                              className="preview-attachment-icon"
+                              style={{ borderColor: previewAttachmentBorder }}
+                            >
+                              {imageUrl ? (
+                                <img src={imageUrl} alt={getDisplayName(accessory, index)} />
+                              ) : (
+                                <span>{getDisplayName(accessory, index).slice(0, 1)}</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <p className="preview-attachment-label">
+                        {getAccessoryLabel(previewAccessories)}: {previewAccessories.map((accessory, index) => getDisplayName(accessory, index)).join(', ')}
+                      </p>
+                    </section>
+                  ) : null}
+                  {previewTags.length > 0 ? (
+                    <p className="preview-tags-line">
+                      <span className="preview-tags-label">Tags:</span>{' '}
+                      {previewTags.join(', ')}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             ) : (

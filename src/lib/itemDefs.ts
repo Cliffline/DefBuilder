@@ -65,17 +65,7 @@ function nextItemDefId(items: ItemDef[]): number {
 
 export function createEmptyDocument(): InventoryDocument {
   return {
-    appid: 480,
-    items: [
-      {
-        itemdefid: 1000,
-        type: 'item',
-        name: 'New Item',
-        description: '',
-        tradable: true,
-        marketable: true,
-      },
-    ],
+    items: [],
   };
 }
 
